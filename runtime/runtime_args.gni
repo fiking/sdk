@@ -74,6 +74,8 @@ declare_args() {
   # being built on platforms which have a problem linking in the Perfetto
   # library.
   dart_support_perfetto = true
+
+  uc_build_llvm_compiler = false
 }
 
 declare_args() {

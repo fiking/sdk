@@ -55,7 +55,14 @@ namespace dart {
   V(EliminateWriteBarriers)                                                    \
   V(TestILSerialization)                                                       \
   V(LoweringAfterCodeMotionDisabled)                                           \
-  V(GenerateCode)
+  V(GenerateCode)                                                              \
+  DART_LLVM_PASS(V)
+
+#if defined(DART_ENABLE_LLVM_COMPILER)
+#define DART_LLVM_PASS(V) V(LivenessAnalysis)
+#else
+#define DART_LLVM_PASS(V)
+#endif
 
 class AllocationSinking;
 class BlockScheduler;

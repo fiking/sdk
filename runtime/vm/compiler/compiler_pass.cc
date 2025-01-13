@@ -25,6 +25,10 @@
 #include "vm/thread.h"
 #include "vm/timeline.h"
 
+#if defined(DART_ENABLE_LLVM_COMPILER)
+#include "vm/compiler/backend/llvm/liveness_analysis.h"
+#endif
+
 #define COMPILER_PASS_REPEAT(Name, Body)                                       \
   class CompilerPass_##Name : public CompilerPass {                            \
    public:                                                                     \
@@ -367,6 +371,12 @@ FlowGraph* CompilerPass::RunPipeline(PipelineMode mode,
   INVOKE_PASS(FinalizeGraph);
   INVOKE_PASS(Canonicalize);
   INVOKE_PASS(ReorderBlocks);
+
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  if (FLAG_llvm_compiler) {
+    INVOKE_PASS(LivenessAnalysis);
+  }
+#endif
   INVOKE_PASS(AllocateRegisters);
   INVOKE_PASS(TestILSerialization);  // Must be last.
   return pass_state->flow_graph();
@@ -574,4 +584,10 @@ COMPILER_PASS(LoweringAfterCodeMotionDisabled,
 
 COMPILER_PASS(GenerateCode, { state->graph_compiler->CompileGraph(); });
 
+#if defined(DART_ENABLE_LLVM_COMPILER)
+COMPILER_PASS(LivenessAnalysis, {
+  dart_llvm::LivenessAnalysis liveness_analysis(flow_graph);
+  liveness_analysis.Analyze();
+}
+#endif
 }  // namespace dart

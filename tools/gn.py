@@ -264,6 +264,8 @@ def ToGnArgs(args, mode, arch, target_os, sanitizer, verify_sdk_hash,
     gn_args['is_ubsan'] = sanitizer == 'ubsan'
     gn_args['is_qemu'] = args.use_qemu
 
+    gn_args['uc_build_llvm_compiler'] = True
+
     if not args.platform_sdk:
         gn_args['dart_platform_sdk'] = args.platform_sdk
 
