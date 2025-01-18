@@ -588,6 +588,6 @@ COMPILER_PASS(GenerateCode, { state->graph_compiler->CompileGraph(); });
 COMPILER_PASS(LivenessAnalysis, {
   dart_llvm::LivenessAnalysis liveness_analysis(flow_graph);
   liveness_analysis.Analyze();
-}
+});
 #endif
 }  // namespace dart

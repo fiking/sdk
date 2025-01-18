@@ -8,6 +8,7 @@
 #include <sys/syscall.h> /* For SYS_xxx definitions */
 #include <time.h>
 #include <unistd.h>
+#include <thread>
 
 #include <memory>
 #ifdef __ANDROID__
@@ -34,7 +35,9 @@ void __my_log(char type, const char* fmt, ...) {
     buf[bytes + 1] = '\0';
   }
 #ifndef __ANDROID__
-  fprintf(g_log, "%c:%lu:%lu: ", type, (long)syscall(__NR_gettid, 0),
+  std::ostringstream oss;
+  oss << std::this_thread::get_id();
+  fprintf(g_log, "%c:%s:%lu: ", type, oss.str().c_str(),
           (long)clock());
   fputs(buf, g_log);
   fflush(g_log);
@@ -64,8 +67,10 @@ void __my_assert_fail(const char* msg, const char* file_name, int lineno) {
   if (!g_log) {
     __builtin_trap();
   }
-  fprintf(g_log, "%lu:%lu: ASSERT FAILED:%s:%s:%d.\n",
-          (long)syscall(__NR_gettid, 0), (long)clock(), msg, file_name, lineno);
+  std::ostringstream oss;
+  oss << std::this_thread::get_id();
+  fprintf(g_log, "%s:%lu: ASSERT FAILED:%s:%s:%d.\n",
+          oss.str().c_str(), (long)clock(), msg, file_name, lineno);
   fflush(g_log);
 #else
   __android_log_print(ANDROID_LOG_ERROR, TAG, "ASSERT FAILED:%s:%s:%d.", msg,

@@ -92,6 +92,25 @@ config("dart_precompiler_config") {
   } else if (is_msan) {
     defines += [ "TARGET_USES_MEMORY_SANITIZER" ]
   }
+
+  print("daixianze $dart_target_arch")
+
+  enable_llvm = false
+  if (uc_build_llvm_compiler) {
+    if (dart_target_arch == "arm") {
+      enable_llvm = true
+    }
+    if (dart_target_arch == "arm64") {
+      enable_llvm = true
+    }
+  }
+  if (enable_llvm) {
+    include_dirs = [ "vm/compiler/backend/llvm/include" ]
+    libs = [ "LLVM-10" ]
+    defines += [ "LLVMLOG_LEVEL=1", "UC_BUILD", "UC_BUILD_LLVM_COMPILER" ]
+    ldflags = [ "-Wl,-rpath,\$ORIGIN/../../../third_party/dart/lib" ]
+    lib_dirs = [ "../lib/" ]
+  }
 }
 
 config("dart_os_config") {

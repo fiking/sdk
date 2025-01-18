@@ -161,7 +161,6 @@ void SSALivenessAnalysis::ComputeInitialSets() {
   const intptr_t block_count = postorder_.length();
   for (intptr_t i = 0; i < block_count; i++) {
     BlockEntryInstr* block = postorder_[i];
-
     BitVector* kill = kill_[i];
     BitVector* live_in = live_in_[i];
 
@@ -169,9 +168,9 @@ void SSALivenessAnalysis::ComputeInitialSets() {
     for (BackwardInstructionIterator it(block); !it.Done(); it.Advance()) {
       Instruction* current = it.Current();
 
-      LocationSummary* locs = current->locs();
+//      LocationSummary* locs = current->locs();
 #if defined(DEBUG)
-      locs->DiscoverWritableInputs();
+ //     locs->DiscoverWritableInputs();
 #endif
 
       // Handle definitions.
@@ -184,9 +183,8 @@ void SSALivenessAnalysis::ComputeInitialSets() {
           live_in->Remove(ToSecondPairVreg(current_def->ssa_temp_index()));
         }
       }
-
       // Handle uses.
-      ASSERT(locs->input_count() == current->InputCount());
+//      ASSERT(locs->input_count() == current->InputCount());
       int input_count = current->InputCount();
       for (intptr_t j = 0; j < input_count; j++) {
         Value* input = current->InputAt(j);
@@ -221,7 +219,7 @@ void SSALivenessAnalysis::ComputeInitialSets() {
             // Treat its inputs as part of the environment.
             // DeepLiveness(defn->AsMaterializeObject(), live_in);
             broken_ = true;
-          } else if (!defn->IsPushArgument() && !defn->IsConstant()) {
+          } else if (!defn->IsMoveArgument() && !defn->IsConstant()) {
             live_in->Add(defn->ssa_temp_index());
             if (defn->HasPairRepresentation()) {
               live_in->Add(ToSecondPairVreg(defn->ssa_temp_index()));
@@ -230,7 +228,6 @@ void SSALivenessAnalysis::ComputeInitialSets() {
         }
       }
     }
-
     // Handle phis.
     if (block->IsJoinEntry()) {
       JoinEntryInstr* join = block->AsJoinEntry();
@@ -282,11 +279,11 @@ void SSALivenessAnalysis::ComputeInitialSets() {
 }
 
 int LivenessAnalysis::GetPPValueSSAIdx() const {
-  return flow_graph().max_virtual_register_number();
+  return flow_graph().max_vreg();
 }
 
 int LivenessAnalysis::MaxSSANumber() const {
-  return flow_graph().max_virtual_register_number() + 1;
+  return flow_graph().max_vreg() + 1;
 }
 
 BitVector* LivenessAnalysis::NewLiveBitVector() const {
