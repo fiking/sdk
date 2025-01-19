@@ -67,7 +67,7 @@ class CallSiteInfo final : public StackMapInfo {
   V(size_t, stack_parameter_count)                                             \
   V(size_t, instr_size)                                                        \
   V(intptr_t, try_index)                                                       \
-  V(RawPcDescriptors::Kind, kind)                                              \
+  V(UntaggedPcDescriptors::Kind, kind)                                              \
   V(const Function*, target)                                                   \
   V(const Code*, code)                                                         \
   V(const Code*, fpu_code)                                                     \
@@ -100,7 +100,7 @@ class CallSiteInfo final : public StackMapInfo {
   size_t stack_parameter_count_;
   size_t instr_size_;
   intptr_t try_index_;
-  RawPcDescriptors::Kind kind_;
+  UntaggedPcDescriptors::Kind kind_;
   union {
     struct {
       const Function* target_;
