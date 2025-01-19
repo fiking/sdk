@@ -375,8 +375,8 @@ FlowGraph* CompilerPass::RunPipeline(PipelineMode mode,
 
 #if defined(DART_ENABLE_LLVM_COMPILER)
   if (FLAG_llvm_compiler) {
-//    INVOKE_PASS(LivenessAnalysis);
-    INVOKE_PASS(IRTranslate);
+    INVOKE_PASS(LivenessAnalysis);
+//    INVOKE_PASS(IRTranslate);
   }
 #endif
   INVOKE_PASS(AllocateRegisters);
@@ -593,8 +593,16 @@ COMPILER_PASS(LivenessAnalysis, {
 });
 
 COMPILER_PASS(IRTranslate, {
-  dart_llvm::IRTranslator ir_translator(flow_graph, state->precompiler);
-  ir_translator.Translate();
+  const Function& function = flow_graph->parsed_function().function();
+  const bool needs_args_descriptor =
+      function.HasOptionalParameters() || function.IsGeneric();
+  if (!(function.IsDynamicFunction() && !needs_args_descriptor)) {
+    dart_llvm::IRTranslator ir_translator(flow_graph, state->precompiler);
+    ir_translator.Translate();
+  } else {
+    THR_Print("LLVM compilation disabled for function: %s\n",
+              function.ToCString());
+  }
 });
 #endif
 }  // namespace dart
