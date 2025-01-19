@@ -17,6 +17,7 @@
 #include "vm/allocation.h"
 #include "vm/code_descriptors.h"
 #include "vm/compiler/backend/compile_type.h"
+#include "vm/compiler/backend/llvm/llvm_config.h"
 #include "vm/compiler/backend/il_serializer.h"
 #include "vm/compiler/backend/locations.h"
 #include "vm/compiler/backend/slot.h"

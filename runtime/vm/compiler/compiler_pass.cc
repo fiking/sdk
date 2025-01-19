@@ -27,6 +27,7 @@
 
 #if defined(UC_BUILD_LLVM_COMPILER)
 #include "vm/compiler/backend/llvm/liveness_analysis.h"
+#include "vm/compiler/backend/llvm/ir_translator.h"
 #endif
 
 #define COMPILER_PASS_REPEAT(Name, Body)                                       \
@@ -374,7 +375,8 @@ FlowGraph* CompilerPass::RunPipeline(PipelineMode mode,
 
 #if defined(DART_ENABLE_LLVM_COMPILER)
   if (FLAG_llvm_compiler) {
-    INVOKE_PASS(LivenessAnalysis);
+//    INVOKE_PASS(LivenessAnalysis);
+    INVOKE_PASS(IRTranslate);
   }
 #endif
   INVOKE_PASS(AllocateRegisters);
@@ -588,6 +590,11 @@ COMPILER_PASS(GenerateCode, { state->graph_compiler->CompileGraph(); });
 COMPILER_PASS(LivenessAnalysis, {
   dart_llvm::LivenessAnalysis liveness_analysis(flow_graph);
   liveness_analysis.Analyze();
+});
+
+COMPILER_PASS(IRTranslate, {
+  dart_llvm::IRTranslator ir_translator(flow_graph, state->precompiler);
+  ir_translator.Translate();
 });
 #endif
 }  // namespace dart
