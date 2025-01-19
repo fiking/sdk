@@ -21,6 +21,9 @@
 #include "vm/growable_array.h"
 #include "vm/object_store.h"
 #include "vm/resolver.h"
+#if defined(DART_ENABLE_LLVM_COMPILER)
+#include "vm/compiler/backend/llvm/compiler_state.h"
+#endif
 
 namespace dart {
 
@@ -3128,5 +3131,12 @@ void FlowGraph::CompactSSA(ZoneGrowableArray<Definition*>* detached_defs) {
                          detached_defs);
   compactor.RenumberGraph(this);
 }
+
+#if defined(DART_ENABLE_LLVM_COMPILER)
+void FlowGraph::SetLLVMCompilerState(
+    std::unique_ptr<dart_llvm::CompilerState> state) {
+  llvm_compiler_state_ = std::move(state);
+}
+#endif
 
 }  // namespace dart

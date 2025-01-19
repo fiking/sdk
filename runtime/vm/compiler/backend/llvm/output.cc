@@ -114,7 +114,7 @@ void Output::initializeFunction(const RegisterParameterDesc& registerParameters,
   params_types[RegisterToParameterLoc(NULL_REG)] = tagged_type();
 #endif
 #if defined(TARGET_SUPPORT_BARRIER_MASK_REG)
-  params_types[RegisterToParameterLoc(BARRIER_MASK)] = repo().intPtr;
+  params_types[RegisterToParameterLoc(HEAP_BITS)] = repo().intPtr;
 #endif
   EMASSERT(params_types.size() == kV8CCRegisterParameterCount);
   std::vector<LType> float_point_parameter_types;
@@ -670,7 +670,7 @@ int Output::RegisterToParameterLoc(Register r) {
       return 12;
     case PP:
       return 13;
-    case BARRIER_MASK:
+    case HEAP_BITS:
       return 14;
     default:
       UNREACHABLE();

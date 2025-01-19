@@ -27,6 +27,7 @@
 
 #if defined(UC_BUILD_LLVM_COMPILER)
 #include "vm/compiler/backend/llvm/liveness_analysis.h"
+#include "vm/compiler/backend/llvm/ir_translator.h"
 #endif
 
 #define COMPILER_PASS_REPEAT(Name, Body)                                       \
@@ -374,7 +375,8 @@ FlowGraph* CompilerPass::RunPipeline(PipelineMode mode,
 
 #if defined(DART_ENABLE_LLVM_COMPILER)
   if (FLAG_llvm_compiler) {
-    INVOKE_PASS(LivenessAnalysis);
+    OS::PrintErr("%s", "FLAG_llvm_compiler enable\n");
+    INVOKE_PASS(IRTranslate);
   }
 #endif
   INVOKE_PASS(AllocateRegisters);
@@ -418,6 +420,20 @@ COMPILER_PASS(ApplyClassIds, { state->call_specializer->ApplyClassIds(); });
 COMPILER_PASS(EliminateStackOverflowChecks, {
   if (!flow_graph->IsCompiledForOsr()) {
     CheckStackOverflowElimination::EliminateStackOverflow(flow_graph);
+  }
+});
+
+COMPILER_PASS(HoistGenericCheckBounds, {
+  if (!flow_graph->IsCompiledForOsr()) {
+    HoistGenericCheckBound::HoistGenericCheckBounds(
+        flow_graph, state->inline_id_to_function);
+  }
+});
+
+COMPILER_PASS(MayMoveWarnGenericCheckBounds, {
+  if (!flow_graph->IsCompiledForOsr()) {
+    GenericCheckBoundMayMoveWarn::MayWarn(flow_graph,
+                                          state->inline_id_to_function);
   }
 });
 
@@ -588,6 +604,19 @@ COMPILER_PASS(GenerateCode, { state->graph_compiler->CompileGraph(); });
 COMPILER_PASS(LivenessAnalysis, {
   dart_llvm::LivenessAnalysis liveness_analysis(flow_graph);
   liveness_analysis.Analyze();
+});
+
+COMPILER_PASS(IRTranslate, {
+  const Function& function = flow_graph->parsed_function().function();
+  bool should_compile_with_llvm =
+      flow_graph->graph_entry()->unchecked_entry() == nullptr;
+  if (should_compile_with_llvm) {
+    dart_llvm::IRTranslator ir_translator(flow_graph, state->precompiler);
+    ir_translator.Translate();
+  } else {
+    THR_Print("LLVM compilation disabled for function: %s\n",
+              function.ToCString());
+  }
 });
 #endif
 }  // namespace dart

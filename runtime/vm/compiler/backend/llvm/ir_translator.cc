@@ -165,7 +165,7 @@ class AnonImpl {
       TokenPosition token_pos,
       intptr_t deopt_id,
       const Code& stub,
-      RawPcDescriptors::Kind kind,
+      UntaggedPcDescriptors::Kind kind,
       size_t stack_argument_count,
       const std::vector<std::pair<Register, LValue>>& gp_parameters) {
     return GenerateCall(instr, token_pos, deopt_id, false, stub, nullptr, kind,
@@ -179,7 +179,7 @@ class AnonImpl {
       bool is_shared_stub_call,
       const Code& stub,
       const Code* fpu_stub,
-      RawPcDescriptors::Kind kind,
+      UntaggedPcDescriptors::Kind kind,
       size_t stack_argument_count,
       const std::vector<std::pair<Register, LValue>>& gp_parameters);
   LValue GenerateRuntimeCall(Instruction*,
@@ -314,7 +314,7 @@ class AnonImpl {
   inline FlowGraph* flow_graph() { return flow_graph_; }
   inline Thread* thread() { return thread_; }
   inline ObjectStore* object_store() {
-    return flow_graph()->isolate()->object_store();
+    return flow_graph()->isolate_group()->object_store();
   }
 
   // classes
@@ -529,7 +529,7 @@ class ComparisonResolver : public FlowGraphVisitor {
  private:
   void VisitStrictCompare(StrictCompareInstr* instr) override;
   void VisitEqualityCompare(EqualityCompareInstr* instr) override;
-  void VisitCheckedSmiComparison(CheckedSmiComparisonInstr* instr) override;
+//  void VisitCheckedSmiComparison(CheckedSmiComparisonInstr* instr) override;
   void VisitCaseInsensitiveCompare(CaseInsensitiveCompareInstr* instr) override;
   void VisitRelationalOp(RelationalOpInstr* instr) override;
   void VisitDoubleTestOp(DoubleTestOpInstr* instr) override;
@@ -546,7 +546,7 @@ class ReturnRepresentationDeducer : public FlowGraphVisitor {
   Representation Deduce();
 
  private:
-  void VisitReturn(ReturnInstr*) override;
+//  void VisitReturn(ReturnInstr*) override;
   Representation rep_;
   DISALLOW_COPY_AND_ASSIGN(ReturnRepresentationDeducer);
 };
@@ -772,7 +772,9 @@ void AnonImpl::End() {
   output().EmitDebugInfo(std::move(debug_instrs_));
   output().EmitStackMapInfoMap(std::move(stack_map_info_map_));
   Compile(compiler_state());
+#if 0  
   flow_graph_->SetLLVMCompilerState(std::move(compiler_state_));
+#endif  
 }
 
 void AnonImpl::EndCurrentBlock() {
@@ -1006,7 +1008,7 @@ LValue AnonImpl::GenerateCall(
     bool is_shared_stub_call,
     const Code& stub,
     const Code* fpu_stub,
-    RawPcDescriptors::Kind kind,
+    UntaggedPcDescriptors::Kind kind,
     size_t stack_argument_count,
     const std::vector<std::pair<Register, LValue>>& gp_parameters) {
   if (!stub.InVMIsolateHeap()) {
@@ -1132,7 +1134,7 @@ LValue AnonImpl::GenerateStaticCall(Instruction* instr,
   if (function.HasOptionalParameters() || function.IsGeneric()) {
     argument_desc_val = LoadObject(arguments_descriptor);
   } else {
-    if (!(FLAG_precompiled_mode && FLAG_use_bare_instructions)) {
+    if (!(FLAG_precompiled_mode)) {
       argument_desc_val = output().constTagged(0);
     }
   }
@@ -1325,7 +1327,7 @@ LValue AnonImpl::BooleanToObject(LValue boolean) {
 LValue AnonImpl::LoadClassId(LValue o) {
   const intptr_t class_id_offset =
       compiler::target::Object::tags_offset() +
-      compiler::target::RawObject::kClassIdTagPos / kBitsPerByte;
+      compiler::target::UntaggedObject::kClassIdTagPos / kBitsPerByte;
   return LoadFieldFromOffset(o, class_id_offset,
                              pointerType(output().repo().int16));
 }
@@ -1484,7 +1486,6 @@ LValue AnonImpl::LoadObject(const Object& object, bool is_unique) {
   } else {
     // Make sure that class CallPattern is able to decode this load from the
     // object pool.
-    EMASSERT(FLAG_use_bare_instructions);
     const auto index = is_unique ? object_pool_builder().AddObject(object)
                                  : object_pool_builder().FindObject(object);
     const int32_t offset = compiler::target::ObjectPool::element_offset(index);
@@ -1513,7 +1514,7 @@ LValue AnonImpl::GetNull() {
 LValue AnonImpl::GetBarrierMask() {
   LValue barrier_mask;
 #if defined(TARGET_SUPPORT_BARRIER_MASK_REG)
-  barrier_mask = output().GetRegisterParameter(BARRIER_MASK);
+  barrier_mask = output().GetRegisterParameter(HEAP_BITS);
 #else
   barrier_mask = LoadFromOffset(
       output().thread(), compiler::target::Thread::write_barrier_mask_offset(),
@@ -1533,7 +1534,7 @@ void AnonImpl::StoreToOffset(LValue base, LValue offset, LValue v) {
       output().buildGEPWithByteOffset(base, offset, pointerType(typeOf(v)));
   output().buildStore(v, gep);
 }
-
+#if 0
 void AnonImpl::StoreIntoObject(Instruction* instr,
                                LValue object,  // Object we are storing into.
                                LValue dest,    // Where we are storing into.
@@ -1563,7 +1564,7 @@ void AnonImpl::StoreIntoObject(Instruction* instr,
         value_tag, output().buildShr(
                        object_tag,
                        output().constInt8(
-                           compiler::target::RawObject::kBarrierOverlapShift)));
+                           compiler::target::UntaggedObject::kBarrierOverlapShift)));
     LValue barrier_mask = GetBarrierMask();
     DiamondContinuationResolver resolver(*this, -1);
     resolver.RightHint();
@@ -1606,6 +1607,7 @@ void AnonImpl::StoreIntoObject(Instruction* instr,
   });
   diamond.End();
 }
+#endif
 
 void AnonImpl::StoreIntoArray(Instruction* instr,
                               LValue object,  // Object we are storing into.
@@ -1636,7 +1638,7 @@ void AnonImpl::StoreIntoArray(Instruction* instr,
         value_tag, output().buildShr(
                        object_tag,
                        output().constInt8(
-                           compiler::target::RawObject::kBarrierOverlapShift)));
+                           compiler::target::UntaggedObject::kBarrierOverlapShift)));
     LValue barrier_mask = GetBarrierMask();
     DiamondContinuationResolver resolver(*this, -1);
     resolver.RightHint();
@@ -2282,7 +2284,7 @@ LValue BoxAllocationSlowPath::BuildSlowPath() {
   const Code& stub = Code::ZoneHandle(
       impl().zone(), StubCode::GetAllocationStubForClass(cls_));
   return impl().GenerateCall(instruction_, instruction_->token_pos(), -1, stub,
-                             RawPcDescriptors::kOther, 0, {});
+                             UntaggedPcDescriptors::kOther, 0, {});
 }
 
 ComparisonResolver::ComparisonResolver(AnonImpl& impl)
@@ -2343,12 +2345,12 @@ void ComparisonResolver::VisitStrictCompare(StrictCompareInstr* instr) {
 ReturnRepresentationDeducer::ReturnRepresentationDeducer(AnonImpl& impl)
     : FlowGraphVisitor(impl.flow_graph()->reverse_postorder()),
       rep_(kNoRepresentation) {}
-
+#if 0
 void ReturnRepresentationDeducer::VisitReturn(ReturnInstr* instr) {
   Definition* def = instr->value()->definition();
   rep_ = def->representation();
 }
-
+#endif
 Representation ReturnRepresentationDeducer::Deduce() {
   VisitBlocks();
   return rep_;
@@ -2416,7 +2418,7 @@ void ComparisonResolver::VisitEqualityCompare(EqualityCompareInstr* instr) {
   }
   result_ = cmp_value;
 }
-
+#if 0
 void ComparisonResolver::VisitCheckedSmiComparison(
     CheckedSmiComparisonInstr* instr) {
   LValue left = impl().GetLLVMValue(instr->InputAt(0));
@@ -2467,7 +2469,7 @@ void ComparisonResolver::VisitCheckedSmiComparison(
   });
   result_ = diamond.End();
 }
-
+#endif
 void ComparisonResolver::VisitCaseInsensitiveCompare(
     CaseInsensitiveCompareInstr* instr) {
   UNREACHABLE();
@@ -2932,17 +2934,18 @@ void IRTranslator::VisitParallelMove(ParallelMoveInstr* instr) {
   UNREACHABLE();
 }
 
-void IRTranslator::VisitPushArgument(PushArgumentInstr* instr) {
+void IRTranslator::VisitMoveArgument(MoveArgumentInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue value = impl().GetLLVMValue(instr->value());
   impl().PushArgument(value);
 }
-
+#if 0
 void IRTranslator::VisitReturn(ReturnInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue value = impl().GetLLVMValue(instr->value());
   output().buildRet(value);
 }
+#endif
 
 void IRTranslator::VisitNativeReturn(NativeReturnInstr* instr) {
   LLVMLOGE("unsupported IR: %s\n", __FUNCTION__);
@@ -3010,7 +3013,7 @@ void IRTranslator::VisitAssertAssignable(AssertAssignableInstr* instr) {}
 void IRTranslator::VisitAssertSubtype(AssertSubtypeInstr* instr) {}
 
 void IRTranslator::VisitAssertBoolean(AssertBooleanInstr* instr) {}
-
+#if 0
 void IRTranslator::VisitSpecialParameter(SpecialParameterInstr* instr) {
   LValue val = nullptr;
   auto kind = instr->kind();
@@ -3031,7 +3034,7 @@ void IRTranslator::VisitSpecialParameter(SpecialParameterInstr* instr) {
   }
   impl().SetLLVMValue(instr, val);
 }
-
+#endif
 void IRTranslator::VisitClosureCall(ClosureCallInstr* instr) {
   impl().SetCurrentInstr(instr);
   const intptr_t argument_count =
@@ -3040,7 +3043,7 @@ void IRTranslator::VisitClosureCall(ClosureCallInstr* instr) {
       impl().GetLLVMValue(instr->InputAt(instr->InputCount() - 1));
   LValue entry = impl().LoadFieldFromOffset(
       function,
-      compiler::target::Function::entry_point_offset(instr->entry_kind()),
+      compiler::target::Function::entry_point_offset(),
       pointerType(output().repo().ref8));
 
   std::unique_ptr<CallSiteInfo> callsite_info(new CallSiteInfo);
@@ -3069,11 +3072,11 @@ void IRTranslator::VisitFfiCall(FfiCallInstr* instr) {
   LLVMLOGE("unsupported IR: %s\n", __FUNCTION__);
   UNREACHABLE();
 }
-
+#if 0
 void IRTranslator::VisitInstanceCallBase(InstanceCallBaseInstr* instr) {
   impl().SetCurrentInstr(instr);
   EMASSERT(instr->ic_data() != NULL);
-  EMASSERT((FLAG_precompiled_mode && FLAG_use_bare_instructions));
+  EMASSERT((FLAG_precompiled_mode));
   Zone* zone = impl().zone();
   ICData& ic_data = ICData::ZoneHandle(zone, instr->ic_data()->raw());
   ic_data = ic_data.AsUnaryClassChecks();
@@ -3088,7 +3091,7 @@ void IRTranslator::VisitInstanceCallBase(InstanceCallBaseInstr* instr) {
   callsite_info->set_token_pos(instr->token_pos());
   callsite_info->set_deopt_id(instr->deopt_id());
   callsite_info->set_stack_parameter_count(argument_count);
-  callsite_info->set_kind(RawPcDescriptors::kIcCall);
+  callsite_info->set_kind(UntaggedPcDescriptors::kIcCall);
 
   const Code& initial_stub = StubCode::UnlinkedCall();
   const UnlinkedCall& data =
@@ -3118,6 +3121,7 @@ void IRTranslator::VisitInstanceCallBase(InstanceCallBaseInstr* instr) {
   LValue result = resolver.BuildCall();
   impl().SetLLVMValue(instr, result);
 }
+#endif
 
 void IRTranslator::VisitInstanceCall(InstanceCallInstr* instr) {
   VisitInstanceCallBase(instr);
@@ -3151,7 +3155,7 @@ void IRTranslator::VisitStaticCall(StaticCallInstr* instr) {
                     arguments_descriptor, instr->deopt_id(), num_args_checked,
                     instr->rebind_rule_));
   } else {
-    call_ic_data = &ICData::ZoneHandle(instr->ic_data()->raw());
+    call_ic_data = &ICData::ZoneHandle(instr->ic_data()->ptr());
   }
   ArgumentsInfo args_info(instr->type_args_len(), instr->ArgumentCount(),
                           instr->ArgumentsSize(), instr->argument_names());
@@ -3271,7 +3275,7 @@ void IRTranslator::VisitLoadIndexed(LoadIndexedInstr* instr) {
   const intptr_t shift =
       Utils::ShiftForPowerOfTwo(instr->index_scale()) + boxing_shift;
   int32_t offset =
-      instr->IsExternal()
+      instr->IsUntagged()
           ? 0
           : (compiler::target::Instance::DataOffsetFor(instr->class_id()) -
              kHeapObjectTag);
@@ -3369,8 +3373,7 @@ void IRTranslator::VisitLoadIndexed(LoadIndexedInstr* instr) {
     case kTypedDataUint8ClampedArrayCid:
     case kExternalTypedDataUint8ArrayCid:
     case kExternalTypedDataUint8ClampedArrayCid:
-    case kOneByteStringCid:
-    case kExternalOneByteStringCid: {
+    case kOneByteStringCid: {
       EMASSERT(instr->representation() == kUnboxedIntPtr);
       LValue gep =
           impl().BuildAccessPointer(array, offset_value, output().repo().ref8);
@@ -3387,8 +3390,7 @@ void IRTranslator::VisitLoadIndexed(LoadIndexedInstr* instr) {
       break;
     }
     case kTypedDataUint16ArrayCid:
-    case kTwoByteStringCid:
-    case kExternalTwoByteStringCid: {
+    case kTwoByteStringCid: {
       EMASSERT(instr->representation() == kUnboxedIntPtr);
       LValue gep =
           impl().BuildAccessPointer(array, offset_value, output().repo().ref16);
@@ -3440,7 +3442,6 @@ void IRTranslator::VisitLoadCodeUnits(LoadCodeUnitsInstr* instr) {
   LType type;
   switch (instr->class_id()) {
     case kOneByteStringCid:
-    case kExternalOneByteStringCid:
       switch (instr->element_count()) {
         case 1:
           type = output().repo().int8;
@@ -3456,7 +3457,6 @@ void IRTranslator::VisitLoadCodeUnits(LoadCodeUnitsInstr* instr) {
       }
       break;
     case kTwoByteStringCid:
-    case kExternalTwoByteStringCid:
       switch (instr->element_count()) {
         case 1:
           type = output().repo().int16;
@@ -3512,7 +3512,7 @@ void IRTranslator::VisitStoreIndexed(StoreIndexedInstr* instr) {
   const intptr_t shift =
       Utils::ShiftForPowerOfTwo(instr->index_scale()) + boxing_shift;
   int32_t offset =
-      instr->IsExternal()
+      instr->IsUntagged()
           ? 0
           : (compiler::target::Instance::DataOffsetFor(instr->class_id()) -
              kHeapObjectTag);
@@ -3629,7 +3629,7 @@ void IRTranslator::VisitStoreIndexed(StoreIndexedInstr* instr) {
       UNREACHABLE();
   }
 }
-
+#if 0
 void IRTranslator::VisitStoreInstanceField(StoreInstanceFieldInstr* instr) {
   impl().SetCurrentInstr(instr);
   const intptr_t offset_in_bytes = instr->OffsetInBytes();
@@ -3720,12 +3720,12 @@ void IRTranslator::VisitInitStaticField(InitStaticFieldInstr* instr) {
       impl().LoadObject(Field::ZoneHandle(instr->field().Original()));
   constexpr const Register kFieldOrignalReg = InitStaticFieldABI::kFieldReg;
   impl().GenerateCall(instr, instr->token_pos(), instr->deopt_id(),
-                      StubCode::InitStaticField(), RawPcDescriptors::kOther, 0,
+                      StubCode::InitStaticField(), UntaggedPcDescriptors::kOther, 0,
                       {{kFieldOrignalReg, field_original}});
   resolver.GotoMerge();
   resolver.End();
 }
-
+#endif
 void IRTranslator::VisitLoadStaticField(LoadStaticFieldInstr* instr) {
   impl().SetCurrentInstr(instr);
 
@@ -3735,7 +3735,7 @@ void IRTranslator::VisitLoadStaticField(LoadStaticFieldInstr* instr) {
 
   LValue v = impl().LoadFromOffset(
       field_table_values,
-      compiler::target::FieldTable::OffsetOf(instr->StaticField()),
+      compiler::target::FieldTable::OffsetOf(instr->field()),
       pointerType(output().tagged_type()));
   impl().SetLLVMValue(instr, v);
 }
@@ -3786,10 +3786,10 @@ void IRTranslator::VisitInstanceOf(InstanceOfInstr* instr) {
 void IRTranslator::VisitCreateArray(CreateArrayInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue length = impl().GetLLVMValue(instr->num_elements());
-  LValue elem_type = impl().GetLLVMValue(instr->element_type());
+  LValue elem_type = impl().GetLLVMValue(instr->type_arguments());
   LValue result = impl().GenerateCall(
       instr, instr->token_pos(), instr->deopt_id(), StubCode::AllocateArray(),
-      RawPcDescriptors::kOther, 0,
+      UntaggedPcDescriptors::kOther, 0,
       {{kCreateArrayLengthReg, length},
        {kCreateArrayElementTypeReg, elem_type}});
   impl().SetLLVMValue(instr, result);
@@ -3805,7 +3805,7 @@ void IRTranslator::VisitAllocateObject(AllocateObjectInstr* instr) {
           impl().flow_graph()->parsed_function().function(), type_usage_info,
           instr->cls(), instr->type_arguments()->definition());
     }
-    args.emplace_back(kAllocationStubTypeArgumentsReg,
+    args.emplace_back(AllocateObjectABI::kTypeArgumentsReg,
                       impl().GetLLVMValue(instr->type_arguments()));
   }
   const Code& stub = Code::ZoneHandle(
@@ -3813,7 +3813,7 @@ void IRTranslator::VisitAllocateObject(AllocateObjectInstr* instr) {
 
   LValue result = impl().GenerateCall(
       instr, instr->token_pos(), instr->deopt_id(), stub,
-      RawPcDescriptors::kOther, instr->ArgumentCount(), args);
+      UntaggedPcDescriptors::kOther, instr->ArgumentCount(), args);
   impl().SetLLVMValue(instr, result);
 }
 
@@ -3821,6 +3821,7 @@ void IRTranslator::VisitLoadField(LoadFieldInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue instance = impl().GetLLVMValue(instr->instance());
   intptr_t offset_in_bytes = instr->slot().offset_in_bytes();
+ #if 0 
   if (instr->IsUnboxedLoad()) {
     if (instr->slot().field().is_non_nullable_integer()) {
       LValue value = impl().LoadFieldFromOffset(instance, offset_in_bytes,
@@ -3854,6 +3855,7 @@ void IRTranslator::VisitLoadField(LoadFieldInstr* instr) {
     // support after call implementation.
     UNREACHABLE();
   }
+ #endif 
   LValue value;
   if (instr->HasType() && instr->Type()->ToCid() == kSmiCid)
     value = impl().LoadSmiFieldFromOffset(instance, offset_in_bytes);
@@ -3874,13 +3876,14 @@ void IRTranslator::VisitLoadUntagged(LoadUntaggedInstr* instr) {
   }
   impl().SetLLVMValue(instr, impl().TaggedToWord(value));
 }
-
+#if 0
 void IRTranslator::VisitStoreUntagged(StoreUntaggedInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue object = impl().GetLLVMValue(instr->object());
   LValue value = impl().GetLLVMValue(instr->value());
   impl().StoreToOffset(object, instr->offset_from_tagged(), value);
 }
+#endif
 
 void IRTranslator::VisitLoadClassId(LoadClassIdInstr* instr) {
   impl().SetCurrentInstr(instr);
@@ -3929,11 +3932,22 @@ void IRTranslator::VisitInstantiateTypeArguments(
       impl().GetLLVMValue(instr->function_type_arguments());
   AssemblerResolver resolver(impl());
   Label type_arguments_instantiated("type_arguments_instantiated");
+  
+  ASSERT(!instr->type_arguments()->BindsToConstant() ||
+         !instr->type_arguments()->BoundConstant().IsNull());
+  const auto& type_args =
+      instr->type_arguments()->BindsToConstant()
+          ? TypeArguments::Cast(instr->type_arguments()->BoundConstant())
+          : Object::null_type_arguments();
+
+  const bool can_function_type_args_be_null =
+      instr->function_type_arguments()->CanBe(Object::null_object());
+
   // If both the instantiator and function type arguments are null and if the
   // type argument vector instantiated from null becomes a vector of dynamic,
   // then use null as the type arguments.
-  const intptr_t len = instr->type_arguments().Length();
-  if (instr->type_arguments().IsRawWhenInstantiatedFromRaw(len)) {
+  const intptr_t len = type_args.Length();
+  if (type_args.IsRawWhenInstantiatedFromRaw(len) && can_function_type_args_be_null) {
     LValue null_object = impl().GetNull();
     LValue cmp_1 =
         output().buildICmp(LLVMIntEQ, instantiator_type_args, null_object);
@@ -3950,11 +3964,11 @@ void IRTranslator::VisitInstantiateTypeArguments(
       InstantiationABI::kUninstantiatedTypeArgumentsReg;
   LValue result = impl().GenerateCall(
       instr, instr->token_pos(), instr->deopt_id(), instr->GetStub(),
-      RawPcDescriptors::kOther, 0,
+      UntaggedPcDescriptors::kOther, 0,
       {{kInstantiatorTypeArgumentsReg, instantiator_type_args},
        {kFunctionTypeArgumentsReg, function_type_args},
        {kUninstantiatedTypeArgumentsReg,
-        impl().LoadObject(instr->type_arguments())}});
+        impl().LoadObject(type_args)}});
 
   resolver.GotoMergeWithValue(result);
   result = resolver.End();
@@ -3965,7 +3979,7 @@ void IRTranslator::VisitAllocateContext(AllocateContextInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue result = impl().GenerateCall(
       instr, instr->token_pos(), instr->deopt_id(), StubCode::AllocateContext(),
-      RawPcDescriptors::kOther, 0,
+      UntaggedPcDescriptors::kOther, 0,
       {{kAllocateContextNumOfContextVarsReg,
         output().constIntPtr(instr->num_context_variables())}});
   impl().SetLLVMValue(instr, result);
@@ -3989,7 +4003,7 @@ void IRTranslator::VisitAllocateUninitializedContext(
   resolver.Bind(slow_path);
   resolver.GotoMergeWithValue(impl().GenerateCall(
       instr, instr->token_pos(), instr->deopt_id(), StubCode::AllocateContext(),
-      RawPcDescriptors::kOther, 0,
+      UntaggedPcDescriptors::kOther, 0,
       {{kAllocateContextNumOfContextVarsReg,
         output().constIntPtr(instr->num_context_variables())}}));
   LValue result = resolver.End();
@@ -4136,7 +4150,7 @@ void IRTranslator::VisitBinarySmiOp(BinarySmiOpInstr* instr) {
   }
   impl().SetLLVMValue(instr, value);
 }
-
+#if 0
 void IRTranslator::VisitCheckedSmiComparison(CheckedSmiComparisonInstr* instr) {
   impl().SetCurrentInstr(instr);
   ComparisonResolver resolver(impl());
@@ -4275,7 +4289,7 @@ void IRTranslator::VisitCheckedSmiOp(CheckedSmiOpInstr* instr) {
   LValue final_result = diamond.End();
   impl().SetLLVMValue(instr, final_result);
 }
-
+#endif
 void IRTranslator::VisitBinaryInt32Op(BinaryInt32OpInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue left = impl().EnsureInt32(impl().GetLLVMValue(instr->left()));
@@ -4347,11 +4361,10 @@ void IRTranslator::VisitCheckStackOverflow(CheckStackOverflowInstr* instr) {
   resolver.Bind(slow_path);
   if (!instr->UseSharedSlowPathStub(true)) {
     impl().GenerateRuntimeCall(instr, instr->token_pos(), instr->deopt_id(),
-                               kStackOverflowRuntimeEntry, 0, false);
-  } else if (!impl()
-                  .object_store()
-                  ->stack_overflow_stub_without_fpu_regs_stub()
-                  ->InVMIsolateHeap()) {
+                               kInterruptOrStackOverflowRuntimeEntry, 0, false);
+  } else if (!Code::ZoneHandle(
+        impl().zone(),
+        impl().object_store()->stack_overflow_stub_without_fpu_regs_stub()).InVMIsolateHeap()) {
     const auto& stub = Code::ZoneHandle(
         impl().zone(),
         impl().object_store()->stack_overflow_stub_without_fpu_regs_stub());
@@ -4359,7 +4372,7 @@ void IRTranslator::VisitCheckStackOverflow(CheckStackOverflowInstr* instr) {
         impl().zone(),
         impl().object_store()->stack_overflow_stub_with_fpu_regs_stub());
     impl().GenerateCall(instr, instr->token_pos(), DeoptId::kNone, true, stub,
-                        &fpu_stub, RawPcDescriptors::kOther, 0, {});
+                        &fpu_stub, UntaggedPcDescriptors::kOther, 0, {});
   } else {
     std::unique_ptr<CallSiteInfo> callsite_info(new CallSiteInfo);
     callsite_info->set_type(CallSiteInfo::CallTargetType::kThreadOffset);
@@ -4412,11 +4425,12 @@ void IRTranslator::VisitDoubleToSmi(DoubleToSmiInstr* instr) {
   LLVMLOGE("unsupported IR: %s\n", __FUNCTION__);
   UNREACHABLE();
 }
-
+#if 0
 void IRTranslator::VisitDoubleToDouble(DoubleToDoubleInstr* instr) {
   LLVMLOGE("unsupported IR: %s\n", __FUNCTION__);
   UNREACHABLE();
 }
+#endif
 
 void IRTranslator::VisitDoubleToFloat(DoubleToFloatInstr* instr) {
   impl().SetCurrentInstr(instr);
@@ -4460,7 +4474,7 @@ void IRTranslator::VisitCheckNull(CheckNullInstr* instr) {
   resolver.GotoMerge();
   resolver.Bind(slow_path);
   const RuntimeEntry* runtime_entry;
-  if (instr->IsArgumentCheck()) {
+  if (instr->exception_type() == CheckNullInstr::ExceptionType::kArgumentError) {
     runtime_entry = &kArgumentNullErrorRuntimeEntry;
   } else {
     runtime_entry = &kNullErrorRuntimeEntry;
@@ -4522,7 +4536,7 @@ void IRTranslator::VisitDoubleTestOp(DoubleTestOpInstr* instr) {
   instr->Accept(&resolver);
   impl().SetLLVMValue(instr, impl().BooleanToObject(resolver.result()));
 }
-
+#if 0
 void IRTranslator::VisitMathUnary(MathUnaryInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue value = impl().GetLLVMValue(instr->value());
@@ -4536,7 +4550,7 @@ void IRTranslator::VisitMathUnary(MathUnaryInstr* instr) {
   }
   impl().SetLLVMValue(instr, value);
 }
-
+#endif
 void IRTranslator::VisitMathMinMax(MathMinMaxInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue left = impl().GetLLVMValue(instr->left());
@@ -4800,10 +4814,9 @@ void IRTranslator::VisitBoxInt64(BoxInt64Instr* instr) {
 
     resolver.Bind(slow_path);
     if (BoxInt64Instr::SlowPathSharingSupported(true) &&
-        !impl()
-             .object_store()
-             ->allocate_mint_without_fpu_regs_stub()
-             ->InVMIsolateHeap()) {
+        !Code::ZoneHandle(
+          impl().zone(),
+          impl().object_store()->allocate_mint_without_fpu_regs_stub()).InVMIsolateHeap()) {
       const auto& stub = Code::ZoneHandle(
           impl().zone(),
           impl().object_store()->allocate_mint_without_fpu_regs_stub());
@@ -4812,7 +4825,7 @@ void IRTranslator::VisitBoxInt64(BoxInt64Instr* instr) {
           impl().object_store()->allocate_mint_with_fpu_regs_stub());
       result =
           impl().GenerateCall(instr, instr->token_pos(), DeoptId::kNone, true,
-                              stub, &fpu_stub, RawPcDescriptors::kOther, 0, {});
+                              stub, &fpu_stub, UntaggedPcDescriptors::kOther, 0, {});
     } else {
       BoxAllocationSlowPath allocate(instr, impl().mint_class(), impl());
       result = allocate.Allocate();
@@ -4975,7 +4988,7 @@ void IRTranslator::VisitOneByteStringFromCharCode(
   LLVMLOGE("unsupported IR: %s\n", __FUNCTION__);
   UNREACHABLE();
 }
-
+#if 0
 void IRTranslator::VisitStringInterpolate(StringInterpolateInstr* instr) {
   impl().SetCurrentInstr(instr);
   const int kTypeArgsLen = 0;
@@ -4990,7 +5003,7 @@ void IRTranslator::VisitStringInterpolate(StringInterpolateInstr* instr) {
       instr->token_pos(), instr->CallFunction(), args_info, ICData::Handle());
   impl().SetLLVMValue(instr, result);
 }
-
+#endif
 void IRTranslator::VisitInvokeMathCFunction(InvokeMathCFunctionInstr* instr) {
   impl().SetCurrentInstr(instr);
   // init the types & parameters.
@@ -5124,11 +5137,6 @@ void IRTranslator::VisitIfThenElse(IfThenElseInstr* instr) {
 }
 
 void IRTranslator::VisitMaterializeObject(MaterializeObjectInstr* instr) {
-  LLVMLOGE("unsupported IR: %s\n", __FUNCTION__);
-  UNREACHABLE();
-}
-
-void IRTranslator::VisitTestSmi(TestSmiInstr* instr) {
   LLVMLOGE("unsupported IR: %s\n", __FUNCTION__);
   UNREACHABLE();
 }
@@ -5303,12 +5311,11 @@ void IRTranslator::VisitSimdOp(SimdOpInstr* instr) {
 }
 
 void IRTranslator::VisitReachabilityFence(ReachabilityFenceInstr*) {}
-
 void IRTranslator::VisitDispatchTableCall(DispatchTableCallInstr* instr) {
   impl().SetCurrentInstr(instr);
   LValue dispatch_table = impl().GetDispatchTable();
   intptr_t offset =
-      (instr->selector()->offset - DispatchTable::OriginElement()) *
+      (instr->selector()->offset - DispatchTable::kOriginElement) *
       compiler::target::kWordSize;
   LValue cid = impl().GetLLVMValue(instr->class_id());
   cid = output().buildCast(LLVMZExt, cid, output().repo().intPtr);
@@ -5378,6 +5385,74 @@ void IRTranslator::VisitUnboxInteger32(UnboxInteger32Instr* instr) {
     impl().set_exception_occured();
   }
   impl().SetLLVMValue(instr, result);
+}
+
+void IRTranslator::VisitStoreField(StoreFieldInstr* instr) {}
+void IRTranslator::VisitMemoryCopy(MemoryCopyInstr* instr) {}
+void IRTranslator::VisitDartReturn(DartReturnInstr* instr) {
+  // Nothing to do.
+}
+void IRTranslator::VisitLeafRuntimeCall(LeafRuntimeCallInstr* instr) {
+  // Nothing to do.
+}
+void IRTranslator::VisitCachableIdempotentCall(
+    CachableIdempotentCallInstr* instr) {
+  // Nothing to do.
+}
+void IRTranslator::VisitRecordCoverage(RecordCoverageInstr* instr) {
+  // Nothing to do.
+}
+void IRTranslator::VisitBoolToInt(BoolToIntInstr* instr) {
+  // Nothing to do.
+}
+void IRTranslator::VisitIntToBool(IntToBoolInstr* instr) {
+  // Nothing to do.
+}
+void IRTranslator::VisitAllocateClosure(AllocateClosureInstr* instr) {
+  // Nothing to do.
+}
+void IRTranslator::VisitAllocateRecord(AllocateRecordInstr* instr) {
+  // Nothing to do.
+}
+void IRTranslator::VisitAllocateSmallRecord(
+    AllocateSmallRecordInstr* instr) {
+}
+void IRTranslator::VisitAllocateTypedData(AllocateTypedDataInstr* instr) {
+
+}
+void IRTranslator::VisitCalculateElementAddress(
+    CalculateElementAddressInstr* instr) {
+
+}
+void IRTranslator::VisitHashDoubleOp(HashDoubleOpInstr* instr) {
+}
+void IRTranslator::VisitHashIntegerOp(HashIntegerOpInstr* instr) {
+
+}
+void IRTranslator::VisitFloatCompare(FloatCompareInstr* instr) {
+
+}
+void IRTranslator::VisitCheckWritable(CheckWritableInstr* instr) {
+
+}
+void IRTranslator::VisitUtf8Scan(Utf8ScanInstr* instr) {
+
+}
+void IRTranslator::VisitTestInt(TestIntInstr* instr) {}
+void IRTranslator::VisitTestRange(TestRangeInstr* instr) {}
+void IRTranslator::VisitMakePair(MakePairInstr* instr) {
+
+}
+void IRTranslator::VisitUnboxLane(UnboxLaneInstr* instr) {}
+void IRTranslator::VisitBoxLanes(BoxLanesInstr* instr) {
+}
+void IRTranslator::VisitBoxSmallInt(BoxSmallIntInstr* instr) {
+}
+void IRTranslator::VisitCall1ArgStub(Call1ArgStubInstr* instr) {
+}
+void IRTranslator::VisitLoadThread(LoadThreadInstr* instr) {
+}
+void IRTranslator::VisitSuspend(SuspendInstr* instr) {
 }
 }  // namespace dart_llvm
 }  // namespace dart

@@ -249,6 +249,7 @@ class ObjectPointerVisitor;
   RW(Code, clone_context_stub)                                                 \
   RW(Code, write_barrier_wrappers_stub)                                        \
   RW(Code, array_write_barrier_stub)                                           \
+  RW(Code, write_barrier_stub)                                                 \
   RW(Code, throw_stub)                                                         \
   RW(Code, re_throw_stub)                                                      \
   RW(Code, assert_boolean_stub)                                                \

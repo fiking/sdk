@@ -13,9 +13,9 @@ void CodeAssembler::GenerateNativeCall(const CallSiteInfo* call_site_info) {
   assembler().add(R2, SP,
                   compiler::Operand(call_site_info->stack_parameter_count() *
                                     compiler::target::kWordSize));
-  assembler().LoadWordFromPoolOffset(
+  assembler().LoadWordFromPoolIndex(
       R5, call_site_info->native_entry_pool_offset());
-  assembler().LoadWordFromPoolOffset(CODE_REG,
+  assembler().LoadWordFromPoolIndex(CODE_REG,
                                      call_site_info->stub_pool_offset());
   assembler().ldr(TMP, compiler::FieldAddress(
                            CODE_REG, compiler::target::Code::entry_point_offset(
@@ -27,10 +27,10 @@ void CodeAssembler::GenerateNativeCall(const CallSiteInfo* call_site_info) {
 void CodeAssembler::GeneratePatchableCall(const CallSiteInfo* call_site_info) {
   EMASSERT(call_site_info->ic_pool_offset() + compiler::target::kWordSize ==
            call_site_info->target_stub_pool_offset());
-  assembler().LoadDoubleWordFromPoolOffset(R5, LR,
+  assembler().LoadDoubleWordFromPoolIndex(R5, R30,
                                            call_site_info->ic_pool_offset());
   assembler().blr(
-      LR);  // Use blx instruction so that the return branch prediction works.
+      R30);  // Use blx instruction so that the return branch prediction works.
 }
 
 static size_t RoundUp(size_t v, size_t align_shift) {
