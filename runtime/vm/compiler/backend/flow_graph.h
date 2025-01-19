@@ -18,6 +18,9 @@
 #include "vm/hash_map.h"
 #include "vm/parser.h"
 #include "vm/thread.h"
+#if defined(UC_BUILD_LLVM_COMPILER) && defined(DART_PRECOMPILER)
+#include "vm/compiler/backend/llvm/llvm_config.h"
+#endif
 
 namespace dart {
 
@@ -27,6 +30,12 @@ class VariableLivenessAnalysis;
 namespace compiler {
 class GraphIntrinsifier;
 }
+
+#if defined(DART_ENABLE_LLVM_COMPILER)
+namespace dart_llvm {
+struct CompilerState;
+}  // namespace dart_llvm
+#endif
 
 class BlockIterator : public ValueObject {
  public:
@@ -599,6 +608,13 @@ class FlowGraph : public ZoneAllocated {
                                       Value* array,
                                       classid_t cid);
 
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  void SetLLVMCompilerState(std::unique_ptr<dart_llvm::CompilerState> state);
+  dart_llvm::CompilerState& llvm_compiler_state() {
+    return *llvm_compiler_state_;
+  }
+#endif
+
  private:
   friend class FlowGraphCompiler;  // TODO(ajcbik): restructure
   friend class FlowGraphChecker;
@@ -743,6 +759,9 @@ class FlowGraph : public ZoneAllocated {
   intptr_t max_argument_slot_count_ = -1;
 
   const Array* coverage_array_ = &Array::empty_array();
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  std::unique_ptr<dart_llvm::CompilerState> llvm_compiler_state_;
+#endif
 };
 
 class LivenessAnalysis : public ValueObject {
