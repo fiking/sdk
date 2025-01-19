@@ -61,7 +61,7 @@ static const Register kReceiverReg = R0;
 static const Register kICReg = R5;
 
 // Reg Call
-static const Register kCallTargetReg = LR;
+static const Register kCallTargetReg = R30;
 static const size_t kCallInstrSize = Instr::kInstrSize;
 static const size_t kCallReturnOnStackInstrSize = 2 * Instr::kInstrSize;
 
