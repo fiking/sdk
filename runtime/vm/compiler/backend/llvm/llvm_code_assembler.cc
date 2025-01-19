@@ -115,7 +115,7 @@ void CodeAssembler::PrepareDwarfAction() {
       if (instr->IsReturn()) {
         ReturnInstr* return_instr = instr->AsReturn();
         if (return_instr->yield_index() !=
-            RawPcDescriptors::kInvalidYieldIndex) {
+            UntaggedPcDescriptors::kInvalidYieldIndex) {
           compiler().EmitYieldPositionMetadata(return_instr->token_pos(),
                                                return_instr->yield_index());
         }

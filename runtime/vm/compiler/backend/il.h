@@ -72,6 +72,12 @@ class BlockBuilder;
 struct TableSelector;
 }  // namespace compiler
 
+#if defined(DART_ENABLE_LLVM_COMPILER)
+namespace dart_llvm {
+class IRTranslator;
+}
+#endif
+
 class Value : public ZoneAllocated {
  public:
   // A forward iterator that allows removing the current value from the
@@ -5717,6 +5723,10 @@ class StaticCallInstr : public TemplateDartCall<0> {
   const CallTargets* targets_ = nullptr;
   const class BinaryFeedback* binary_ = nullptr;
 
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  friend class dart::dart_llvm::IRTranslator;
+#endif
+
   DISALLOW_COPY_AND_ASSIGN(StaticCallInstr);
 };
 
@@ -6758,6 +6768,10 @@ class StoreStaticFieldInstr : public TemplateDefinition<1, NoThrow> {
                                        : compiler::Assembler::kValueIsNotSmi;
   }
 
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  friend class dart::dart_llvm::IRTranslator;
+#endif
+
   DISALLOW_COPY_AND_ASSIGN(StoreStaticFieldInstr);
 };
 
@@ -7147,6 +7161,10 @@ class StoreIndexedInstr : public TemplateInstruction<3, NoThrow> {
   compiler::Assembler::CanBeSmi CanValueBeSmi() const {
     return compiler::Assembler::kValueCanBeSmi;
   }
+
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  friend class dart::dart_llvm::IRTranslator;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(StoreIndexedInstr);
 };
@@ -8088,6 +8106,9 @@ class LoadClassIdInstr : public TemplateDefinition<1, NoThrow, Pure> {
 #undef FIELD_LIST
 
  private:
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  friend class dart::dart_llvm::IRTranslator;
+#endif
   DISALLOW_COPY_AND_ASSIGN(LoadClassIdInstr);
 };
 
@@ -8569,6 +8590,9 @@ class BoxInstr : public TemplateDefinition<1, NoThrow, Pure> {
     return Boxing::ValueOffset(from_representation());
   }
 
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  friend class dart::dart_llvm::IRTranslator;
+#endif
   DISALLOW_COPY_AND_ASSIGN(BoxInstr);
 };
 
@@ -8753,6 +8777,10 @@ class UnboxInstr : public TemplateDefinition<1, NoThrow, Pure> {
   intptr_t BoxCid() const { return Boxing::BoxCid(representation_); }
 
   intptr_t ValueOffset() const { return Boxing::ValueOffset(representation_); }
+
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  friend class dart::dart_llvm::IRTranslator;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(UnboxInstr);
 };
