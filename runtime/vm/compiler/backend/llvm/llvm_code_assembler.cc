@@ -1,6 +1,6 @@
 #include "vm/compiler/backend/llvm/llvm_code_assembler.h"
 #if defined(DART_ENABLE_LLVM_COMPILER)
-#include <elf.h>
+#include "elf.h"
 
 #include "vm/bitmap.h"
 #include "vm/compiler/aot/dispatch_table_generator.h"
@@ -26,7 +26,7 @@ namespace dart_llvm {
 #endif
 CodeAssembler::CodeAssembler(FlowGraphCompiler* compiler)
     : compiler_(compiler), arch_impl_(new ArchImpl) {
-  llvm_compiler_state_ = std::move(compiler->flow_graph().ReleaseLLVMState());
+//  llvm_compiler_state_ = compiler->flow_graph().ReleaseLLVMState();
   EMASSERT(compiler_state().code_section_list_.size() == 1);
   const ByteBuffer& code_buffer = *compiler_state().code_section_list_.back();
   code_start_ = code_buffer.data();
@@ -99,8 +99,7 @@ void CodeAssembler::PrepareDwarfAction() {
     Instruction* instr = debug_instrs_[index];
     auto func = [this, instr]() -> size_t {
       EndLastInstr();
-      compiler().code_source_map_builder_->StartInliningInterval(
-          assembler().CodeSize(), instr->inlining_id());
+      compiler().BeginCodeSourceRange(instr->source());
       if (FLAG_code_comments || FLAG_disassemble ||
           FLAG_disassemble_optimized) {
         // This flag is not defined as global.
@@ -109,15 +108,14 @@ void CodeAssembler::PrepareDwarfAction() {
         }
         compiler().EmitComment(instr);
       }
-      compiler().BeginCodeSourceRange();
       compiler().StatsBegin(instr);
       last_instr_ = instr;
-      if (instr->IsReturn()) {
-        ReturnInstr* return_instr = instr->AsReturn();
-        if (return_instr->yield_index() !=
+      if (instr->IsReturnBase()) {
+        ReturnBaseInstr* return_instr = instr->AsReturnBase();
+        if (return_instr->deopt_id() !=
             UntaggedPcDescriptors::kInvalidYieldIndex) {
-          compiler().EmitYieldPositionMetadata(return_instr->token_pos(),
-                                               return_instr->yield_index());
+          compiler().EmitYieldPositionMetadata(return_instr->source(),
+                                               return_instr->deopt_id());
         }
       }
       if (instr->IsStoreStaticField()) {
@@ -126,7 +124,7 @@ void CodeAssembler::PrepareDwarfAction() {
       }
       if (instr->IsLoadStaticField()) {
         compiler().used_static_fields().Add(
-            &instr->AsLoadStaticField()->StaticField());
+            &instr->AsLoadStaticField()->field());
       }
       return static_cast<size_t>(0);
     };
@@ -286,7 +284,7 @@ void CodeAssembler::AddMetaData(const CallSiteInfo* call_site_info,
   intptr_t try_index = CollectExceptionInfo(call_site_info);
   compiler().AddDescriptor(call_site_info->kind(), assembler().CodeSize(),
                            call_site_info->deopt_id(),
-                           call_site_info->token_pos(), try_index);
+                           InstructionSource(call_site_info->token_pos()), try_index);
   if (try_index != kInvalidTryIndex) {
     compiler().catch_entry_moves_maps_builder_->NewMapping(
         assembler().CodeSize());
@@ -441,7 +439,7 @@ void CodeAssembler::RecordSafePoint(const CallSiteInfo* call_site_info,
     int index = top_of_stack - i - 1;
     builder->Set(index, true);
   }
-  compiler().compressed_stackmaps_builder()->AddEntry(assembler().CodeSize(),
+  compiler().compressed_stackmaps_builder_->AddEntry(assembler().CodeSize(),
                                                       builder, slot_count_);
 }
 
@@ -449,16 +447,12 @@ void CodeAssembler::EmitExceptionHandler() {
   if (exception_map_.empty()) return;
   GraphEntryInstr* graph_entry = compiler().flow_graph().graph_entry();
   for (auto& p : exception_map_) {
-    intptr_t try_index = p.first;
     intptr_t origin_try_index;
     size_t exception_block_off;
     std::tie(exception_block_off, origin_try_index) = p.second;
     CatchBlockEntryInstr* catch_block =
         graph_entry->GetCatchEntry(origin_try_index);
-    compiler().AddExceptionHandler(
-        try_index, catch_block->try_index(), exception_block_off,
-        catch_block->is_generated(), catch_block->catch_handler_types(),
-        catch_block->needs_stacktrace());
+    compiler().AddExceptionHandler(catch_block);
   }
 }
 
@@ -475,7 +469,7 @@ void CodeAssembler::EndLastInstr() {
       if (receiver->Type()->is_nullable()) {
         const String& function_name = String::ZoneHandle(
             dispatch_table_call_instr->interface_target().name());
-        compiler().AddNullCheck(dispatch_table_call_instr->token_pos(),
+        compiler().AddNullCheck(dispatch_table_call_instr->source(),
                                 function_name);
       }
     }
@@ -483,7 +477,7 @@ void CodeAssembler::EndLastInstr() {
         dispatch_table_call_instr->selector());
   }
   compiler().StatsEnd(last_instr_);
-  compiler().EndCodeSourceRange(last_instr_->token_pos());
+  compiler().EndCodeSourceRange(last_instr_->source());
 }
 
 void CodeAssembler::AddAction(size_t pc_offset, std::function<void()> action) {

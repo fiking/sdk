@@ -181,6 +181,8 @@ if (uc_build_llvm_compiler) {
     "backend/llvm/intrinsic_repository.h",
     "backend/llvm/liveness_analysis.cc",
     "backend/llvm/liveness_analysis.h",
+    "backend/llvm/llvm_code_assembler.cc",
+    "backend/llvm/llvm_code_assembler.h",
     "backend/llvm/llvm_headers.h",
     "backend/llvm/llvm_log.cc",
     "backend/llvm/llvm_log.h",
