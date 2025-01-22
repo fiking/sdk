@@ -59,6 +59,9 @@
 #include "vm/type_testing_stubs.h"
 #include "vm/version.h"
 #include "vm/zone_text_buffer.h"
+#if defined(DART_ENABLE_LLVM_COMPILER)
+#include "vm/compiler/backend/llvm/llvm_code_assembler.h"
+#endif
 
 namespace dart {
 
@@ -354,6 +357,14 @@ class PrecompileParsedFunctionHelper : public ValueObject {
                            FlowGraphCompiler* graph_compiler,
                            FlowGraph* flow_graph,
                            CodeStatistics* stats);
+
+#if defined(DART_ENABLE_LLVM_COMPILER)
+  void FinalizeCompilationNoInstall(compiler::Assembler* assembler,
+                                    FlowGraphCompiler* graph_compiler,
+                                    FlowGraph* flow_graph,
+                                    CodeStatistics* stats);
+#endif
+
 
   Precompiler* precompiler_;
   ParsedFunction* parsed_function_;
@@ -762,6 +773,50 @@ void Precompiler::AddRoots() {
     UNREACHABLE();
   }
 }
+
+#if defined(DART_ENABLE_LLVM_COMPILER)
+void PrecompileParsedFunctionHelper::FinalizeCompilationNoInstall(
+    compiler::Assembler* assembler,
+    FlowGraphCompiler* graph_compiler,
+    FlowGraph* flow_graph,
+    CodeStatistics* stats) {
+  const Function& function = parsed_function()->function();
+  Zone* const zone = thread()->zone();
+
+  // CreateDeoptInfo uses the object pool and needs to be done before
+  // FinalizeCode.
+  const Array& deopt_info_array =
+      Array::Handle(zone, graph_compiler->CreateDeoptInfo(assembler));
+  // Allocates instruction object. Since this occurs only at safepoint,
+  // there can be no concurrent access to the instruction page.
+  const auto pool_attachment = FLAG_precompiled_mode
+                                   ? Code::PoolAttachment::kNotAttachPool
+                                   : Code::PoolAttachment::kAttachPool;
+  const Code& code = Code::Handle(
+      Code::FinalizeCodeAndNotify(function, graph_compiler, assembler,
+                                  pool_attachment, optimized(), stats));
+  code.set_is_optimized(optimized());
+  code.set_owner(function);
+  if (!function.IsOptimizable()) {
+    // A function with huge unoptimized code can become non-optimizable
+    // after generating unoptimized code.
+    function.set_usage_counter(INT32_MIN);
+  }
+
+  graph_compiler->FinalizePcDescriptors(code);
+  code.set_deopt_info_array(deopt_info_array);
+
+  graph_compiler->FinalizeStackMaps(code);
+  graph_compiler->FinalizeVarDescriptors(code);
+  graph_compiler->FinalizeExceptionHandlers(code);
+  graph_compiler->FinalizeCatchEntryMovesMap(code);
+  graph_compiler->FinalizeStaticCallTargetsTable(code);
+  graph_compiler->FinalizeCodeSourceMap(code);
+
+  Disassembler::DisassembleCode(function, code, optimized());
+}
+#endif
+
 
 void Precompiler::Iterate() {
   PRECOMPILER_TIMER_SCOPE(this, Iterate);
@@ -3567,8 +3622,33 @@ bool PrecompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
           &speculative_policy, pass_state.inline_id_to_function,
           pass_state.inline_id_to_token_pos, pass_state.caller_inline_id,
           ic_data_array, function_stats);
-      pass_state.graph_compiler = &graph_compiler;
-      CompilerPass::GenerateCode(&pass_state);
+#if defined(DART_ENABLE_LLVM_COMPILER)
+      if (flow_graph->llvm_compile_ready()) {
+        {
+          TIMELINE_DURATION(thread(), CompilerVerbose, "Assemble Code");
+          dart_llvm::CodeAssembler cs(&graph_compiler);
+          cs.AssembleCode();
+        }
+        {
+          TIMELINE_DURATION(thread(), CompilerVerbose, "FinalizeCompilation");
+          ASSERT(thread()->IsDartMutatorThread());
+          FinalizeCompilation(&assembler, &graph_compiler, flow_graph,
+                              function_stats);
+        }
+      } else {
+        {
+          TIMELINE_DURATION(thread(), CompilerVerbose, "CompileGraph");
+          pass_state.graph_compiler = &graph_compiler;
+          CompilerPass::GenerateCode(&pass_state);
+        }
+        {
+          TIMELINE_DURATION(thread(), CompilerVerbose, "FinalizeCompilation");
+          ASSERT(thread()->IsDartMutatorThread());
+          FinalizeCompilation(&assembler, &graph_compiler, flow_graph,
+                              function_stats);
+        }
+      }
+#else
       {
         COMPILER_TIMINGS_TIMER_SCOPE(thread(), FinalizeCode);
         TIMELINE_DURATION(thread(), CompilerVerbose, "FinalizeCompilation");
@@ -3576,7 +3656,7 @@ bool PrecompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
         FinalizeCompilation(&assembler, &graph_compiler, flow_graph,
                             function_stats);
       }
-
+#endif
       if (precompiler_->phase() ==
           Precompiler::Phase::kFixpointCodeGeneration) {
         for (intptr_t i = 0; i < graph_compiler.used_static_fields().length();
