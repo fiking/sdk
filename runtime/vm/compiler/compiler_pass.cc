@@ -342,6 +342,7 @@ FlowGraph* CompilerPass::RunPipeline(PipelineMode mode,
   INVOKE_PASS(TryOptimizePatterns);
   INVOKE_PASS(DSE);
   INVOKE_PASS(TypePropagation);
+  INVOKE_PASS(HoistGenericCheckBounds);
   INVOKE_PASS(RangeAnalysis);
   INVOKE_PASS(OptimizeBranches);
   INVOKE_PASS(TypePropagation);
