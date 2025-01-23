@@ -546,6 +546,11 @@ void Precompiler::DoCompileAll() {
   IG->object_store()->set_##member(stub_code);
         OBJECT_STORE_STUB_CODE_LIST(DO)
 #undef DO
+#if defined(DART_ENABLE_LLVM_COMPILER)
+//       stub_code = StubCode::BuildIsolateSpecificWriteBarrierStub(
+//           global_object_pool_builder());
+//       IG->object_store()->set_write_barrier_stub(stub_code);
+#endif
       }
 
       CollectDynamicFunctionNames();
