@@ -10,6 +10,10 @@
 #include "vm/bitfield.h"
 #include "vm/hash_map.h"
 
+#if defined(UC_BUILD_LLVM_COMPILER) && defined(DART_PRECOMPILER)
+#include "vm/compiler/backend/llvm/llvm_config.h"
+#endif
+
 namespace dart {
 
 class Object;
