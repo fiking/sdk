@@ -116,9 +116,10 @@ static void PrecompilationModeHandler(bool value) {
     FLAG_deoptimize_every = 0;     // Used in some tests.
     FLAG_use_osr = false;
 #endif
-#if defined(DART_ENABLE_LLVM_COMPILER)
-    FLAG_llvm_compiler = true;
-#endif
+// Do not enable llvm_compiler by default - to allow external choice through
+// #if defined(DART_ENABLE_LLVM_COMPILER)
+//     FLAG_llvm_compiler = false;
+// #endif
   }
 }
 
