@@ -613,7 +613,7 @@ class FlowGraph : public ZoneAllocated {
 
 #if defined(DART_ENABLE_LLVM_COMPILER)
   void SetLLVMCompilerState(std::unique_ptr<dart_llvm::CompilerState> state);
-  const std::unique_ptr<dart_llvm::CompilerState>&& ReleaseLLVMState() const {
+  std::unique_ptr<dart_llvm::CompilerState>&& ReleaseLLVMState() const {
     return std::move(llvm_compiler_state_);
   }
   bool llvm_compile_ready() const { return !!llvm_compiler_state_; }
@@ -765,7 +765,7 @@ class FlowGraph : public ZoneAllocated {
 
   const Array* coverage_array_ = &Array::empty_array();
 #if defined(DART_ENABLE_LLVM_COMPILER)
-  std::unique_ptr<dart_llvm::CompilerState> llvm_compiler_state_;
+  mutable std::unique_ptr<dart_llvm::CompilerState> llvm_compiler_state_;
 #endif
 };
 

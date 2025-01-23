@@ -26,7 +26,7 @@ namespace dart_llvm {
 #endif
 CodeAssembler::CodeAssembler(FlowGraphCompiler* compiler)
     : compiler_(compiler), arch_impl_(new ArchImpl) {
-//  llvm_compiler_state_ = compiler->flow_graph().ReleaseLLVMState();
+  llvm_compiler_state_ = compiler->flow_graph().ReleaseLLVMState();
   EMASSERT(compiler_state().code_section_list_.size() == 1);
   const ByteBuffer& code_buffer = *compiler_state().code_section_list_.back();
   code_start_ = code_buffer.data();
