@@ -16,6 +16,10 @@
 #include "vm/resolver.h"
 #include "vm/stack_frame.h"
 
+#if defined(UC_BUILD_LLVM_COMPILER)
+#include "vm/compiler/backend/llvm/llvm_config.h"
+#endif
+
 namespace dart {
 namespace kernel {
 

@@ -594,7 +594,9 @@ COMPILER_PASS(LivenessAnalysis, {
 
 COMPILER_PASS(IRTranslate, {
   const Function& function = flow_graph->parsed_function().function();
-  if (!function.IsClosureFunction()) {
+  bool should_compile_with_llvm =
+      flow_graph->graph_entry()->unchecked_entry() == nullptr;
+  if (should_compile_with_llvm) {
     dart_llvm::IRTranslator ir_translator(flow_graph, state->precompiler);
     ir_translator.Translate();
   } else {
