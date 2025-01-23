@@ -365,6 +365,7 @@ FlowGraph* CompilerPass::RunPipeline(PipelineMode mode,
   INVOKE_PASS(SelectRepresentations_Final);
   INVOKE_PASS(UseTableDispatch);
   INVOKE_PASS(EliminateStackOverflowChecks);
+  INVOKE_PASS(MayMoveWarnGenericCheckBounds);
   INVOKE_PASS(Canonicalize);
   INVOKE_PASS(AllocationSinking_DetachMaterializations);
   INVOKE_PASS(EliminateWriteBarriers);
@@ -421,6 +422,20 @@ COMPILER_PASS(ApplyClassIds, { state->call_specializer->ApplyClassIds(); });
 COMPILER_PASS(EliminateStackOverflowChecks, {
   if (!flow_graph->IsCompiledForOsr()) {
     CheckStackOverflowElimination::EliminateStackOverflow(flow_graph);
+  }
+});
+
+COMPILER_PASS(HoistGenericCheckBounds, {
+  if (!flow_graph->IsCompiledForOsr()) {
+    HoistGenericCheckBound::HoistGenericCheckBounds(
+        flow_graph, state->inline_id_to_function);
+  }
+});
+
+COMPILER_PASS(MayMoveWarnGenericCheckBounds, {
+  if (!flow_graph->IsCompiledForOsr()) {
+    GenericCheckBoundMayMoveWarn::MayWarn(flow_graph,
+                                          state->inline_id_to_function);
   }
 });
 
